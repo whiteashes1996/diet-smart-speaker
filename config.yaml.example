@@ -1,0 +1,7 @@
+# Copy to config.yaml for non-secret defaults (env overrides these)
+
+wake_word: hey_jarvis
+sample_rate: 16000
+silence_ms: 1200
+max_listen_s: 30
+timezone: Asia/Shanghai
