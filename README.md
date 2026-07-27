@@ -1,49 +1,73 @@
 # Smart Speaker (Diet Voice Assistant)
 
-Mac-first diet voice assistant: wake word → STT → DeepSeek (+ health MCP) → TTS. Modular Protocol/adapters architecture, portable to Raspberry Pi.
+Mac-first diet voice assistant: **wake → STT → DeepSeek (+ health MCP) → TTS**.  
+Protocol/adapters architecture; portable to Raspberry Pi (8GB).
 
-## Status
+Private repo: https://github.com/whiteashes1996/diet-smart-speaker
 
-Task 0 baseline: Protocol definitions, config loading, error types, and pytest scaffolding.
-
-## Setup
+## Setup (Mac)
 
 ```bash
 cd "/Users/whiteashes/Documents/智能音箱"
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env      # fill DEEPSEEK_API_KEY, STT_*, MCP_HEALTH_COMMAND
-cp config.yaml.example config.yaml  # optional non-secret defaults
+cp .env.example .env
+# fill DEEPSEEK_API_KEY, STT_API_KEY, STT_BASE_URL, MCP_HEALTH_COMMAND
+# optional: brew install ffmpeg   # needed for EdgeTTS → PCM in the live loop
 ```
+
+Grant **Microphone** permission to Terminal/iTerm when prompted.
+
+## Run
+
+```bash
+source .venv/bin/activate
+smart-speaker
+# or: python -m smart_speaker
+```
+
+Say `hey jarvis` → cue beep → speak (e.g. diet log / ask advice) → hear reply.
 
 ## Configuration
 
 Priority: **env > config.yaml > defaults**
 
-| Field | Default | Env var |
-|-------|---------|---------|
-| wake_word | hey_jarvis | WAKE_WORD |
-| sample_rate | 16000 | SAMPLE_RATE |
-| silence_ms | 1200 | SILENCE_MS |
-| max_listen_s | 30 | MAX_LISTEN_S |
-| timezone | Asia/Shanghai | TIMEZONE |
-| deepseek_api_key | — | DEEPSEEK_API_KEY |
-| stt_api_key | — | STT_API_KEY |
-| stt_base_url | — | STT_BASE_URL |
-| mcp_health_command | — | MCP_HEALTH_COMMAND |
+| Field | Env |
+|-------|-----|
+| wake_word (`hey_jarvis`) | `WAKE_WORD` |
+| STT | `STT_API_KEY`, `STT_BASE_URL`, `STT_MODEL` |
+| DeepSeek | `DEEPSEEK_API_KEY` |
+| Health MCP stdio | `MCP_HEALTH_COMMAND` |
+
+## Manual module gates
+
+See [docs/manual-gates.md](docs/manual-gates.md).
+
+```bash
+python scripts/manual_audio_smoke.py   # mic loopback
+python scripts/manual_wake_test.py     # wake hard gate
+python scripts/manual_stt_test.py      # STT hard gate (needs STT_*)
+python scripts/manual_tts_listen.py --text "已记录两个鸡蛋"
+python scripts/manual_mcp_log_food.py --name 鸡蛋 --pieces 2 --meal 午
+```
 
 ## Tests
 
 ```bash
-pytest tests/test_protocols_import.py tests/test_config.py -v
+pytest -v
 ```
 
-## Manual gates (later tasks)
+Orchestrator must not import cloud SDKs (`tests/test_orchestrator_no_cloud_imports.py`).
 
-- Task 2 (Wake): human sign-off required before STT work
-- Task 3 (STT): human sign-off required before Task 4+
+## Raspberry Pi / Linux
 
-## License
+See [docs/pi-port.md](docs/pi-port.md).
 
-Private repository — not for public distribution.
+## Architecture
+
+- `protocols/` — AudioIO, WakeWord, STT, LLM, TTS, ToolBackend
+- `adapters/` — sounddevice, openWakeWord, Whisper API, DeepSeek, edge-tts, MCP
+- `orchestrator/` — Idle → Listening → Thinking → Speaking (half-duplex)
+
+Diet tools whitelist only: `log_food`, `list_foods`, `add_food`, `get_day`, `get_daily_summary`, `get_goals`, `get_trend`, `update_entry`, `delete_entry`.

@@ -17,6 +17,7 @@ _ENV_FIELD_MAP: dict[str, str] = {
     "DEEPSEEK_API_KEY": "deepseek_api_key",
     "STT_API_KEY": "stt_api_key",
     "STT_BASE_URL": "stt_base_url",
+    "STT_MODEL": "stt_model",
     "MCP_HEALTH_COMMAND": "mcp_health_command",
 }
 
@@ -33,6 +34,7 @@ class AppConfig:
     deepseek_api_key: str | None = None
     stt_api_key: str | None = None
     stt_base_url: str | None = None
+    stt_model: str = "whisper-1"
     mcp_health_command: str | None = None
 
 
