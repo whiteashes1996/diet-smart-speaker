@@ -8,7 +8,6 @@ import tempfile
 from pathlib import Path
 
 import edge_tts
-import numpy as np
 
 from smart_speaker.errors import FatalError, TransientError
 
