@@ -176,6 +176,9 @@ class Orchestrator:
     def _exit_conversation(self) -> None:
         self._in_conversation = False
         self.session = Session()
+        suppress = getattr(self.wake, "suppress", None)
+        if callable(suppress):
+            suppress()
 
     def _system_prompt(self) -> str:
         tz = getattr(self.config, "timezone", "Asia/Shanghai") or "Asia/Shanghai"
@@ -202,9 +205,13 @@ class Orchestrator:
     async def _handle_chunk(self, pcm: bytes) -> None:
         if self.state == State.IDLE:
             if self.wake.process_chunk(pcm):
-                logger.info("wake detected")
+                score = float(getattr(self.wake, "last_score", 0.0))
+                logger.info("wake detected score=%.3f", score)
                 self._enter_conversation()
                 await self._speak(PROMPT_WAKE)
+                suppress = getattr(self.wake, "suppress", None)
+                if callable(suppress):
+                    suppress()
                 self._reset_listen()
                 self.audio.set_capture_enabled(True)
             return
@@ -311,12 +318,13 @@ class Orchestrator:
     async def _think(self, user_text: str) -> str:
         self.session.add_user(user_text)
         messages: list[dict[str, Any]] = [{"role": "system", "content": self._system_prompt()}]
-        messages.extend(self.session.messages)
+        messages.extend(self.session.history_for_llm())
         tools = self._openai_tools()
         for _ in range(self.max_tool_rounds):
             try:
                 result: LLMResult = await self.llm.chat(messages, tools)
-            except TransientError:
+            except TransientError as exc:
+                logger.warning("LLM failed: %s", exc)
                 return PROMPT_NET_FAIL
             if result.tool_calls:
                 # record assistant tool call message for APIs that need it

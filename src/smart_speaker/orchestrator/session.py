@@ -28,6 +28,7 @@ class Session:
         self._trim()
 
     def add_tool_result(self, tool_call_id: str, name: str, content: str) -> None:
+        # Kept for tests; next-turn LLM history must not include bare tool messages.
         self.messages.append(
             {
                 "role": "tool",
@@ -37,6 +38,16 @@ class Session:
             }
         )
         self._trim()
+
+    def history_for_llm(self) -> list[dict[str, Any]]:
+        """User/assistant text only. Bare tool rows make DeepSeek return 400."""
+        out: list[dict[str, Any]] = []
+        for message in self.messages:
+            role = message.get("role")
+            content = message.get("content")
+            if role in ("user", "assistant") and isinstance(content, str) and content:
+                out.append({"role": role, "content": content})
+        return out
 
     def _trim(self) -> None:
         # Keep last N user/assistant turns loosely by capping list length

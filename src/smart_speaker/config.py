@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 
 _ENV_FIELD_MAP: dict[str, str] = {
     "WAKE_WORD": "wake_word",
+    "WAKE_THRESHOLD": "wake_threshold",
+    "WAKE_REFRACTORY_S": "wake_refractory_s",
     "SAMPLE_RATE": "sample_rate",
     "SILENCE_MS": "silence_ms",
     "VAD_THRESHOLD": "vad_threshold",
@@ -37,12 +39,14 @@ _ENV_FIELD_MAP: dict[str, str] = {
 _INT_FIELDS = frozenset(
     {"sample_rate", "silence_ms", "max_listen_s", "vad_threshold", "min_transcript_chars"}
 )
-_FLOAT_FIELDS = frozenset({"conversation_idle_s"})
+_FLOAT_FIELDS = frozenset({"conversation_idle_s", "wake_threshold", "wake_refractory_s"})
 
 
 @dataclass
 class AppConfig:
     wake_word: str = "hey_jarvis"
+    wake_threshold: float = 0.75
+    wake_refractory_s: float = 4.0
     sample_rate: int = 16000
     silence_ms: int = 1200
     vad_threshold: int = 1500

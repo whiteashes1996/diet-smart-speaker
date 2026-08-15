@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import numpy as np
 
-REFRACTORY_CHUNKS = 25  # ~2s @ 80ms per chunk
 OWW_FRAME_SAMPLES = 1280  # 80 ms @ 16 kHz
+DEFAULT_THRESHOLD = 0.75
+DEFAULT_REFRACTORY_S = 4.0
+CONSECUTIVE_HITS = 2
 
 
 def _resolve_wakeword_model(model_name: str) -> str:
@@ -32,21 +35,37 @@ def _resolve_wakeword_model(model_name: str) -> str:
 
 
 class OpenWakeWordWake:
-    """Detect wake word via openWakeWord; refractory period after trigger."""
+    """Detect wake word via openWakeWord; time-based refractory after trigger."""
 
-    def __init__(self, model_name: str = "hey_jarvis", threshold: float = 0.5) -> None:
+    def __init__(
+        self,
+        model_name: str = "hey_jarvis",
+        threshold: float = DEFAULT_THRESHOLD,
+        refractory_s: float = DEFAULT_REFRACTORY_S,
+    ) -> None:
         from openwakeword.model import Model
 
         model_path = _resolve_wakeword_model(model_name)
         self._model = Model(wakeword_models=[model_path], inference_framework="onnx")
         self._threshold = threshold
-        self._cooldown_chunks = 0
+        self._refractory_s = refractory_s
+        self._cool_until = 0.0
+        self._hits = 0
         self._buffer = np.zeros((0,), dtype=np.int16)
         self.last_score: float = 0.0
 
+    def suppress(self, seconds: float | None = None) -> None:
+        """Ignore wake detections for a while (after TTS / returning to idle)."""
+        hold = self._refractory_s if seconds is None else seconds
+        self._cool_until = max(self._cool_until, time.monotonic() + hold)
+        self._hits = 0
+        self._buffer = np.zeros((0,), dtype=np.int16)
+        reset = getattr(self._model, "reset", None)
+        if callable(reset):
+            reset()
+
     def process_chunk(self, pcm: bytes) -> bool:
-        if self._cooldown_chunks > 0:
-            self._cooldown_chunks -= 1
+        if time.monotonic() < self._cool_until:
             return False
 
         audio = np.frombuffer(pcm, dtype=np.int16)
@@ -61,8 +80,11 @@ class OpenWakeWordWake:
             score = float(max(scores.values())) if scores else 0.0
             self.last_score = score
             if score >= self._threshold:
-                self._cooldown_chunks = REFRACTORY_CHUNKS
-                self._buffer = np.zeros((0,), dtype=np.int16)
+                self._hits += 1
+            else:
+                self._hits = 0
+            if self._hits >= CONSECUTIVE_HITS:
+                self.suppress()
                 triggered = True
                 break
         return triggered

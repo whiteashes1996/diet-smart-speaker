@@ -1,6 +1,8 @@
 # Copy to config.yaml for non-secret defaults (env overrides these)
 
 wake_word: hey_jarvis
+wake_threshold: 0.75
+wake_refractory_s: 4.0
 sample_rate: 16000
 silence_ms: 1200
 vad_threshold: 1500

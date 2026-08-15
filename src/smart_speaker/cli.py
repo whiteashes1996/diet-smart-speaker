@@ -68,7 +68,11 @@ async def _async_main() -> int:
     tools = MultiToolBackend(backends)
 
     audio = SoundDeviceAudioIO(cfg)
-    wake = OpenWakeWordWake(model_name=cfg.wake_word)
+    wake = OpenWakeWordWake(
+        model_name=cfg.wake_word,
+        threshold=cfg.wake_threshold,
+        refractory_s=cfg.wake_refractory_s,
+    )
     stt = _build_stt(cfg)
     llm = DeepSeekLLM(api_key=cfg.deepseek_api_key)
     tts = PiperTTS(
