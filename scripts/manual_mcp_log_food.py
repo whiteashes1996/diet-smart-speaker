@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -14,16 +13,16 @@ from zoneinfo import ZoneInfo
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from smart_speaker.adapters.tools.mcp_health import McpHealthToolBackend
+from smart_speaker.adapters.tools.mcp_health import build_mcp_health_backend
 from smart_speaker.config import load_config
 
 
 async def _run(name: str, pieces: float, meal: str) -> int:
     cfg = load_config()
-    if not cfg.mcp_health_command:
-        print("MCP_HEALTH_COMMAND missing", file=sys.stderr)
+    backend = build_mcp_health_backend(cfg)
+    if backend is None:
+        print("MCP_HEALTH_URL or MCP_HEALTH_COMMAND missing", file=sys.stderr)
         return 1
-    backend = McpHealthToolBackend(cfg.mcp_health_command)
     await backend.connect()
     try:
         await backend.refresh_tools()

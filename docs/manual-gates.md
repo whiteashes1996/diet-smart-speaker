@@ -19,6 +19,13 @@ Human verification checkpoints. Fill in Result after running each gate.
 - Transcript 2:
 - Notes: Automation (Task 3A) shipped; needs `STT_API_KEY`.
 
+## Remote MCP gate
+- Date:
+- Tester:
+- Result:  # PASS / FAIL — run: `python scripts/manual_mcp_log_food.py --name 鸡蛋 --pieces 2 --meal 午`
+- Needs: `MCP_HEALTH_URL` + `MCP_HEALTH_TOKEN` (user1)
+- Notes: `log_food` then `get_day` should show the new entry on the remote server.
+
 ## E2E kitchen gate
 - Date:
 - Tester:

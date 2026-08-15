@@ -3,5 +3,8 @@
 wake_word: hey_jarvis
 sample_rate: 16000
 silence_ms: 1200
+vad_threshold: 1500
+min_transcript_chars: 2
+conversation_idle_s: 3
 max_listen_s: 30
 timezone: Asia/Shanghai

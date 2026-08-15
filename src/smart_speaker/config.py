@@ -12,6 +12,8 @@ _ENV_FIELD_MAP: dict[str, str] = {
     "WAKE_WORD": "wake_word",
     "SAMPLE_RATE": "sample_rate",
     "SILENCE_MS": "silence_ms",
+    "VAD_THRESHOLD": "vad_threshold",
+    "MIN_TRANSCRIPT_CHARS": "min_transcript_chars",
     "MAX_LISTEN_S": "max_listen_s",
     "TIMEZONE": "timezone",
     "DEEPSEEK_API_KEY": "deepseek_api_key",
@@ -19,9 +21,23 @@ _ENV_FIELD_MAP: dict[str, str] = {
     "STT_BASE_URL": "stt_base_url",
     "STT_MODEL": "stt_model",
     "MCP_HEALTH_COMMAND": "mcp_health_command",
+    "MCP_HEALTH_URL": "mcp_health_url",
+    "MCP_HEALTH_TOKEN": "mcp_health_token",
+    "MCP_HEALTH_TOKEN_FILE": "mcp_health_token_file",
+    "MCP_HEALTH_CA_FILE": "mcp_health_ca_file",
+    "AUDIO_INPUT_DEVICE": "audio_input_device",
+    "CONVERSATION_IDLE_S": "conversation_idle_s",
+    "SENSEVOICE_MODEL": "sensevoice_model",
+    "SENSEVOICE_TOKENS": "sensevoice_tokens",
+    "PIPER_BIN": "piper_bin",
+    "PIPER_MODEL": "piper_model",
+    "MEMORY_DIR": "memory_dir",
 }
 
-_INT_FIELDS = frozenset({"sample_rate", "silence_ms", "max_listen_s"})
+_INT_FIELDS = frozenset(
+    {"sample_rate", "silence_ms", "max_listen_s", "vad_threshold", "min_transcript_chars"}
+)
+_FLOAT_FIELDS = frozenset({"conversation_idle_s"})
 
 
 @dataclass
@@ -29,6 +45,8 @@ class AppConfig:
     wake_word: str = "hey_jarvis"
     sample_rate: int = 16000
     silence_ms: int = 1200
+    vad_threshold: int = 1500
+    min_transcript_chars: int = 2
     max_listen_s: int = 30
     timezone: str = "Asia/Shanghai"
     deepseek_api_key: str | None = None
@@ -36,11 +54,26 @@ class AppConfig:
     stt_base_url: str | None = None
     stt_model: str = "whisper-1"
     mcp_health_command: str | None = None
+    mcp_health_url: str | None = None
+    mcp_health_token: str | None = None
+    mcp_health_token_file: str | None = None
+    mcp_health_ca_file: str | None = None
+    audio_input_device: str | None = "MacBook Pro Microphone"
+    # Conversation / multi-turn
+    conversation_idle_s: float = 3.0
+    # Pi local models
+    sensevoice_model: str = "~/sherpa-onnx/models/sensevoice-int8/model.int8.onnx"
+    sensevoice_tokens: str = "~/sherpa-onnx/models/sensevoice-int8/tokens.txt"
+    piper_bin: str = "~/voice-bench/tts/piper/piper"
+    piper_model: str = "~/voice-bench/tts/models/zh_CN-chaowen-medium.onnx"
+    memory_dir: str = "~/smart-speaker/memory"
 
 
 def _coerce_value(field: str, value: Any) -> Any:
     if field in _INT_FIELDS and value is not None:
         return int(value)
+    if field in _FLOAT_FIELDS and value is not None:
+        return float(value)
     if isinstance(value, str) and value == "":
         return None
     return value

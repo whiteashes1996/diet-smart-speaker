@@ -9,9 +9,9 @@ from pathlib import Path
 
 from smart_speaker.adapters.audio.sounddevice_io import SoundDeviceAudioIO
 from smart_speaker.adapters.llm.deepseek_llm import DeepSeekLLM
-from smart_speaker.adapters.stt.openai_whisper_stt import OpenAIWhisperSTT
-from smart_speaker.adapters.tools.mcp_health import McpHealthToolBackend
-from smart_speaker.adapters.tts.edge_tts_tts import EdgeTTSAdapter
+from smart_speaker.adapters.tools.local_notes import LocalNoteToolBackend, MultiToolBackend
+from smart_speaker.adapters.tools.mcp_health import build_mcp_health_backend
+from smart_speaker.adapters.tts.piper_tts import PiperTTS
 from smart_speaker.adapters.wake.openwakeword_wake import OpenWakeWordWake
 from smart_speaker.config import load_config
 from smart_speaker.errors import FatalError
@@ -25,36 +25,57 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def _build_stt(cfg):
+    """Prefer local SenseVoice on Pi; fall back to OpenAI Whisper if key provided."""
+    try:
+        from smart_speaker.adapters.stt.sensevoice_stt import SenseVoiceSTT
+
+        return SenseVoiceSTT(
+            model_path=cfg.sensevoice_model,
+            tokens_path=cfg.sensevoice_tokens,
+            sample_rate=cfg.sample_rate,
+        )
+    except FatalError:
+        if cfg.stt_api_key:
+            from smart_speaker.adapters.stt.openai_whisper_stt import OpenAIWhisperSTT
+
+            return OpenAIWhisperSTT(
+                api_key=cfg.stt_api_key,
+                base_url=cfg.stt_base_url or "https://api.openai.com/v1",
+                model=cfg.stt_model,
+                sample_rate=cfg.sample_rate,
+            )
+        raise
+
+
 async def _async_main() -> int:
     cfg = load_config()
-    missing = []
     if not cfg.deepseek_api_key:
-        missing.append("DEEPSEEK_API_KEY")
-    if not cfg.stt_api_key:
-        missing.append("STT_API_KEY")
-    if not cfg.mcp_health_command:
-        missing.append("MCP_HEALTH_COMMAND")
-    if missing:
-        print(f"Missing config: {', '.join(missing)}", file=sys.stderr)
+        print("Missing config: DEEPSEEK_API_KEY", file=sys.stderr)
         return 1
 
     cue_path = _repo_root() / "assets" / "wake_cue.wav"
     cue = load_wake_cue_pcm(cue_path) if cue_path.is_file() else b"\x00\x00" * 800
 
-    tools = McpHealthToolBackend(cfg.mcp_health_command)
-    await tools.connect()
-    await tools.refresh_tools()
+    # Local notes always available; health MCP optional (HTTP URL or stdio).
+    notes = LocalNoteToolBackend(memory_dir=cfg.memory_dir)
+    backends = [notes]
+    health = build_mcp_health_backend(cfg)
+    if health is not None:
+        await health.connect()
+        await health.refresh_tools()
+        backends.insert(0, health)
+    tools = MultiToolBackend(backends)
 
-    audio = SoundDeviceAudioIO(sample_rate=cfg.sample_rate)
+    audio = SoundDeviceAudioIO(cfg)
     wake = OpenWakeWordWake(model_name=cfg.wake_word)
-    stt = OpenAIWhisperSTT(
-        api_key=cfg.stt_api_key,
-        base_url=cfg.stt_base_url or "https://api.openai.com/v1",
-        model=cfg.stt_model,
+    stt = _build_stt(cfg)
+    llm = DeepSeekLLM(api_key=cfg.deepseek_api_key)
+    tts = PiperTTS(
+        piper_bin=cfg.piper_bin,
+        model_path=cfg.piper_model,
         sample_rate=cfg.sample_rate,
     )
-    llm = DeepSeekLLM(api_key=cfg.deepseek_api_key)
-    tts = EdgeTTSAdapter(sample_rate=cfg.sample_rate)
 
     orch = Orchestrator(
         config=cfg,
@@ -65,14 +86,20 @@ async def _async_main() -> int:
         tts=tts,
         tools=tools,
         wake_cue_pcm=cue,
+        conversation_idle_s=cfg.conversation_idle_s,
     )
-    logger.info("smart-speaker running — say %s", cfg.wake_word)
+    logger.info(
+        "smart-speaker running — say %s (conversation idle %.1fs)",
+        cfg.wake_word,
+        cfg.conversation_idle_s,
+    )
     try:
         await orch.run_forever()
     except KeyboardInterrupt:
         orch.request_stop()
     finally:
-        await tools.close()
+        if health is not None:
+            await health.close()
     return 0
 
 

@@ -14,6 +14,8 @@ def _silence(samples: int = 640) -> bytes:
 def test_is_speech_detects_energy():
     assert is_speech(_tone()) is True
     assert is_speech(_silence()) is False
+    assert is_speech(_tone(amplitude=800), threshold=1500) is False
+    assert is_speech(_tone(amplitude=2000), threshold=1500) is True
 
 
 def test_silence_vad_ends_after_silence():

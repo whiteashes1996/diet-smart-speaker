@@ -13,7 +13,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env
-# fill DEEPSEEK_API_KEY, STT_API_KEY, STT_BASE_URL, MCP_HEALTH_COMMAND
+# fill DEEPSEEK_API_KEY, STT_API_KEY, STT_BASE_URL
+# fill MCP_HEALTH_URL + MCP_HEALTH_TOKEN (or MCP_HEALTH_COMMAND for local stdio)
 # optional: brew install ffmpeg   # needed for EdgeTTS → PCM in the live loop
 ```
 
@@ -38,7 +39,8 @@ Priority: **env > config.yaml > defaults**
 | wake_word (`hey_jarvis`) | `WAKE_WORD` |
 | STT | `STT_API_KEY`, `STT_BASE_URL`, `STT_MODEL` |
 | DeepSeek | `DEEPSEEK_API_KEY` |
-| Health MCP stdio | `MCP_HEALTH_COMMAND` |
+| Health MCP HTTP | `MCP_HEALTH_URL`, `MCP_HEALTH_TOKEN` (or `MCP_HEALTH_TOKEN_FILE`), `MCP_HEALTH_CA_FILE` |
+| Health MCP stdio fallback | `MCP_HEALTH_COMMAND`（未设 URL 时） |
 
 ## Manual module gates
 
